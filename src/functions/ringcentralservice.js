@@ -6,7 +6,15 @@ const express = require("express");
 // const formData = require("express-form-data");
 const axios = require("axios");
 const RingCentral = require("@ringcentral/sdk");
+const cors = require("cors");
 
+
+// Create a CORS middleware instance with desired options
+const corsOptions = {
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
 // const app = express();
 // app.use(bodyParser.json());
 // // app.use(express.json());
@@ -30,15 +38,56 @@ const rc = new RingCentral.SDK({
   clientSecret: RC_CLIENT_SECRET,
 });
 
+// Helper function to apply CORS to Azure Function responses
+const applyCors = (handler) => {
+  return async (request, context) => {
+    // Handle OPTIONS requests directly
+    if (request.method === 'OPTIONS') {
+      // Create a response with CORS headers
+      const corsMiddleware = cors(corsOptions);
+      return new Promise((resolve) => {
+        corsMiddleware({}, {
+          status: (code) => ({ statusCode: code }),
+          set: (headers) => ({ headers }),
+          end: () => resolve({ 
+            status: 204, 
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': corsOptions.methods.join(', '),
+              'Access-Control-Allow-Headers': corsOptions.allowedHeaders.join(', '),
+              'Access-Control-Max-Age': corsOptions.maxAge
+            }
+          })
+        }, () => {});
+      });
+    }
+
+    // For non-OPTIONS requests, execute the handler and add CORS headers
+    const response = await handler(request, context);
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': corsOptions.methods.join(', '),
+      'Access-Control-Allow-Headers': corsOptions.allowedHeaders.join(', ')
+    };
+
+    return {
+      ...response,
+      headers: {
+        ...response.headers,
+        ...corsHeaders
+      }
+    };
+  };
+};
 
 app.http('ping', {
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'function',
-    handler: async (request, context) => {
+    handler: applyCors(async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
 
         return { status: 200, body: JSON.stringify({ success: true, message: "Service is Up!" }) };
-    }
+    })
 });
 
 
@@ -78,10 +127,10 @@ async function refreshAccessToken() {
   }
 }
 app.http('SendSMSFunction', {
-    methods: ['POST'],
+    methods: ['POST', 'OPTIONS'],
     authLevel: 'function',
     route: 'send/sms',
-    handler: async (request, context) => {
+    handler: applyCors(async (request, context) => {
       context.info(`Processing SMS request for ${request.url}`);
   
       let requestBody;
@@ -138,5 +187,5 @@ app.http('SendSMSFunction', {
   
         return { status: 500, body: JSON.stringify({ success: false, message: "Failed to send SMS" }) };
       }
-    }
+    })
   });
