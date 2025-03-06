@@ -8,13 +8,6 @@ const axios = require("axios");
 const RingCentral = require("@ringcentral/sdk");
 const cors = require("cors");
 
-
-// Create a CORS middleware instance with desired options
-const corsOptions = {
-  origin: '*', // Allow all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-};
 // const app = express();
 // app.use(bodyParser.json());
 // // app.use(express.json());
@@ -39,44 +32,37 @@ const rc = new RingCentral.SDK({
 });
 
 // Helper function to apply CORS to Azure Function responses
+const corsOptions = {
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+// Helper function to apply CORS headers
 const applyCors = (handler) => {
   return async (request, context) => {
-    // Handle OPTIONS requests directly
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': corsOptions.origin,
+      'Access-Control-Allow-Methods': corsOptions.methods.join(', '),
+      'Access-Control-Allow-Headers': corsOptions.allowedHeaders.join(', '),
+      'Access-Control-Max-Age': 600,
+    };
+
     if (request.method === 'OPTIONS') {
-      // Create a response with CORS headers
-      const corsMiddleware = cors(corsOptions);
-      return new Promise((resolve) => {
-        corsMiddleware({}, {
-          status: (code) => ({ statusCode: code }),
-          set: (headers) => ({ headers }),
-          end: () => resolve({ 
-            status: 204, 
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': corsOptions.methods.join(', '),
-              'Access-Control-Allow-Headers': corsOptions.allowedHeaders.join(', '),
-              'Access-Control-Max-Age': corsOptions.maxAge
-            }
-          })
-        }, () => {});
-      });
+      return { status: 204, headers: corsHeaders };
     }
 
-    // For non-OPTIONS requests, execute the handler and add CORS headers
-    const response = await handler(request, context);
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': corsOptions.methods.join(', '),
-      'Access-Control-Allow-Headers': corsOptions.allowedHeaders.join(', ')
-    };
-
-    return {
-      ...response,
-      headers: {
-        ...response.headers,
-        ...corsHeaders
-      }
-    };
+    try {
+      const response = await handler(request, context);
+      return { ...response, headers: { ...response.headers, ...corsHeaders } };
+    } catch (error) {
+      context.error("Error:", error);
+      return {
+        status: 500,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: "Internal Server Error" }),
+      };
+    }
   };
 };
 
