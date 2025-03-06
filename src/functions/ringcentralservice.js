@@ -130,7 +130,7 @@ app.http('SendSMSFunction', {
 
       context.info(`Sending SMS to ${to} with message: ${message}`);
       if (!to || !message) {
-        return { status: 400, body: "Receiver number and message are required" };
+        return { status: 400, body: JSON.stringify({ success: false, message: "Missing required parameters : to or message" }) };
       }
   
       try {
