@@ -1,0 +1,22 @@
+{
+  "name": "ringcentralnode-service",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "@ringcentral/sdk": "^5.0.3",
+    "axios": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-form-data": "^2.0.23",
+    "jsonwebtoken": "^9.0.2",
+    "ringcentral": "^3.3.0"
+  },
+  "devDependencies": {},
+  "main": "src/{index.js,functions/*.js}"
+}
