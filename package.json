@@ -17,6 +17,5 @@
     "jsonwebtoken": "^9.0.2",
     "ringcentral": "^3.3.0"
   },
-  "devDependencies": {},
   "main": "src/{index.js,functions/*.js}"
 }
