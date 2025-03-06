@@ -6,6 +6,7 @@ const express = require("express");
 // const formData = require("express-form-data");
 const axios = require("axios");
 const RingCentral = require("@ringcentral/sdk");
+const cors = require("cors");
 
 // const app = express();
 // app.use(bodyParser.json());
@@ -30,15 +31,49 @@ const rc = new RingCentral.SDK({
   clientSecret: RC_CLIENT_SECRET,
 });
 
+// Helper function to apply CORS to Azure Function responses
+const corsOptions = {
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+// Helper function to apply CORS headers
+const applyCors = (handler) => {
+  return async (request, context) => {
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': corsOptions.origin,
+      'Access-Control-Allow-Methods': corsOptions.methods.join(', '),
+      'Access-Control-Allow-Headers': corsOptions.allowedHeaders.join(', '),
+      'Access-Control-Max-Age': 600,
+    };
+
+    if (request.method === 'OPTIONS') {
+      return { status: 204, headers: corsHeaders };
+    }
+
+    try {
+      const response = await handler(request, context);
+      return { ...response, headers: { ...response.headers, ...corsHeaders } };
+    } catch (error) {
+      context.error("Error:", error);
+      return {
+        status: 500,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, message: "Internal Server Error" }),
+      };
+    }
+  };
+};
 
 app.http('ping', {
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'OPTIONS'],
     authLevel: 'function',
-    handler: async (request, context) => {
+    handler: applyCors(async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
 
         return { status: 200, body: JSON.stringify({ success: true, message: "Service is Up!" }) };
-    }
+    })
 });
 
 
@@ -78,10 +113,10 @@ async function refreshAccessToken() {
   }
 }
 app.http('SendSMSFunction', {
-    methods: ['POST'],
+    methods: ['POST', 'OPTIONS'],
     authLevel: 'function',
     route: 'send/sms',
-    handler: async (request, context) => {
+    handler: applyCors(async (request, context) => {
       context.info(`Processing SMS request for ${request.url}`);
   
       let requestBody;
@@ -138,5 +173,5 @@ app.http('SendSMSFunction', {
   
         return { status: 500, body: JSON.stringify({ success: false, message: "Failed to send SMS" }) };
       }
-    }
+    })
   });
